@@ -1,0 +1,39 @@
+#generateBrickWeaveGcode {
+    margin-top: 8px;
+}
+
+#brickWeaveForm .control-group {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#brickWeaveForm .control-label {
+    display: inline-block;
+    float: none;
+    width: 170px;
+    margin: 0;
+    text-align: left;
+    flex-shrink: 0;
+}
+
+#brickWeaveForm .controls {
+    margin-left: 0;
+    display: inline-block;
+}
+
+#brickWeaveForm input[type="number"],
+#brickWeaveForm select {
+    width: 240px;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+#brickWeaveForm .radio.inline,
+#brickWeaveForm .checkbox.inline {
+    margin-right: 12px;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+

@@ -1,0 +1,236 @@
+import math
+import os
+from datetime import datetime
+
+from flask import jsonify, request
+
+import octoprint.plugin
+import octoprint.settings
+
+
+class BrickWeavePlugin(
+    octoprint.plugin.TemplatePlugin,
+    octoprint.plugin.AssetPlugin,
+    octoprint.plugin.SimpleApiPlugin,
+    octoprint.plugin.BlueprintPlugin,
+):
+
+    def get_template_folder(self):
+        return os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
+
+    def get_asset_folder(self):
+        return os.path.join(os.path.dirname(os.path.realpath(__file__)), "static")
+
+    def get_template_configs(self):
+        return [
+            {
+                "type": "tab",
+                "name": "Brick Weave",
+                "template": "brickweave_tab.jinja2",
+            },
+            {
+                "type": "settings",
+                "template": "brickweave_settings.jinja2",
+            },
+        ]
+
+    def get_assets(self):
+        return {
+            "js": ["js/brickweave.js"],
+            "css": ["css/brickweave.css"],
+        }
+
+    def get_update_information(self):
+        return {
+            "brickweave": {
+                "displayName": self._plugin_name,
+                "displayVersion": self._plugin_version,
+                "type": "github_release",
+                "user": "example",
+                "repo": "BrickWeave",
+                "current": self._plugin_version,
+                "pip": "https://example.com/BrickWeave-{target_version}.zip",
+            }
+        }
+
+    def get_api_commands(self):
+        return {"generate_gcode": []}
+
+    def is_api_protected(self):
+        return False
+
+    def on_api_command(self, command, data):
+        if command != "generate_gcode":
+            return None
+
+        return self._save_generated_gcode(data or {})
+
+    @octoprint.plugin.BlueprintPlugin.route("/generate_gcode", methods=["GET"])
+    def generate_gcode_route(self):
+        params = request.values.to_dict(flat=True)
+        result = self._save_generated_gcode(params)
+        status = 200 if result.get("success") else 400
+        return jsonify(result), status
+
+    def _save_generated_gcode(self, params):
+        try:
+            
+            output = self._build_gcode(params)
+            if not output:
+                return {"success": False, "error": "Unable to generate gcode"}
+
+            upload_dir = os.path.join(octoprint.settings.settings().getBaseFolder("base"), "uploads")
+            os.makedirs(upload_dir, exist_ok=True)
+            filename = "brickweave_{}.gcode".format(datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f"))
+            file_path = os.path.join(upload_dir, filename)
+
+            with open(file_path, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write(output)
+
+            return {
+                "success": True,
+                "filename": filename,
+                "path": file_path,
+            }
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
+    def _build_gcode(self, params):
+        style = (params.get("style", "50-50") or "50-50").strip()
+        if style not in ("50-50", "50/50", "Percent", "Chevron"):
+            style = "50-50"
+
+        number_of_divisions = max(1, int(float(params.get("number_of_divisions", 12) or 12)))
+        total_depth = float(params.get("total_depth", 3) or 3)
+        depth_increment = max(0.0001, float(params.get("depth_increment", 1) or 1))
+        plunge_feedrate = float(params.get("plunge_feedrate", 200) or 200)
+        pull_off_distance = float(params.get("pull_off_distance", 3) or 3)
+        cutter_head_width = max(0.0001, float(params.get("cutter_head_width", 6.35) or 6.35))
+        length_of_brickweave = max(0.0, float(params.get("length_of_brickweave", 25.4) or 25.4))
+        percent_value = float(params.get("percent_value", 50) or 50)
+        repeats = max(1, int(float(params.get("repeats", 4) or 4)))
+
+        direction_value = (params.get("direction") or params.get("direction_lr") or "LR").upper()
+        if direction_value == "TRUE":
+            direction_value = "LR"
+        direction_lr = direction_value == "LR"
+        direction_rl = direction_value == "RL"
+
+        division_angle = 360.0 / number_of_divisions
+        pass_rotation = division_angle * (percent_value / 100.0) if style in ("Percent", "Chevron") else division_angle / 2.0
+        x_step = cutter_head_width
+        x_direction = 1.0 if direction_lr else -1.0 if direction_rl else 0.0
+
+        lines = [
+            "G91",
+            f"; style={style}",
+            f"; number_of_divisions={number_of_divisions}",
+            f"; total_depth={total_depth}",
+            f"; depth_increment={depth_increment}",
+            f"; plunge_feedrate={plunge_feedrate}",
+            f"; pull_off_distance={pull_off_distance}",
+            f"; cutter_head_width={cutter_head_width}",
+            f"; length_of_brickweave={length_of_brickweave}",
+            f"; direction={direction_value}",
+            f"; pass_rotation={pass_rotation}",
+            f"; repeats={repeats}",
+        ]
+
+        x_travel = 0.0
+        pass_count = 0
+        chevron_rotation_sign = 1.0
+        while x_travel < length_of_brickweave - 1e-9:
+            pass_count += 1
+            if pass_count > 100000:
+                break
+
+            lines.append("")
+            lines.append(f"; Pass {pass_count}")
+
+            if style == "Chevron":
+                for _ in range(repeats):
+                    for _ in range(number_of_divisions):
+                        lines.append(f"; Division {_ + 1}")
+                        remaining_depth = total_depth
+                        current_depth = 0
+                        while remaining_depth > 0.0:
+                            if current_depth > 0:
+                                lines.append(";Plunge back to Z0")
+                                lines.append(f"G1 Z{-pull_off_distance:.4f} F{plunge_feedrate:.2f}")
+                            step_depth = min(depth_increment, remaining_depth)
+                            lines.append(';Plunge to next depth increment')
+                            lines.append(f"G1 Z{-current_depth-step_depth:.4f} F{plunge_feedrate:.2f}")
+                            remaining_depth -= step_depth
+                            current_depth += step_depth
+                            if remaining_depth > 0.0:
+                                lines.append(";Retract to pull-off distance")
+                                lines.append(f"G1 Z{current_depth+pull_off_distance:.4f} F{plunge_feedrate:.2f}")
+
+                        lines.append(f"G1 Z{total_depth:.4f} F{plunge_feedrate:.2f}")
+                        lines.append(f"G1 A{division_angle:.4f} F{plunge_feedrate:.2f}")
+
+                    lines.append(f"G1 A{(pass_rotation * chevron_rotation_sign):.4f} F{plunge_feedrate:.2f}")
+
+                chevron_rotation_sign *= -1.0
+            else:
+                for _ in range(number_of_divisions):
+                    lines.append(f"; Division {_ + 1}")
+                    remaining_depth = total_depth
+                    current_depth = 0
+                    while remaining_depth > 0.0:
+                        if current_depth > 0:
+                            lines.append(";Plunge back to Z0")
+                            lines.append(f"G1 Z{-pull_off_distance:.4f} F{plunge_feedrate:.2f}")
+                        step_depth = min(depth_increment, remaining_depth)
+                        lines.append(';Plunge to next depth increment')
+                        lines.append(f"G1 Z{-current_depth-step_depth:.4f} F{plunge_feedrate:.2f}")
+                        remaining_depth -= step_depth
+                        current_depth += step_depth
+                        if remaining_depth > 0.0:
+                            lines.append(";Retract to pull-off distance")
+                            lines.append(f"G1 Z{current_depth+pull_off_distance:.4f} F{plunge_feedrate:.2f}")
+
+                    lines.append(f"G1 Z{total_depth:.4f} F{plunge_feedrate:.2f}")
+                    lines.append(f"G1 A{division_angle:.4f} F{plunge_feedrate:.2f}")
+
+                if x_travel == 0.0 and (direction_lr or direction_rl):
+                    lines.append(f"G1 X{(x_direction * x_step):.4f} F{plunge_feedrate:.2f}")
+                    x_travel += x_step
+                    lines.append(f"G1 A{pass_rotation:.4f} F{plunge_feedrate:.2f}")
+                elif (direction_lr or direction_rl) and not (x_travel >= length_of_brickweave - 1e-9):
+                    lines.append(f"G1 X{(x_direction * x_step):.4f} F{plunge_feedrate:.2f}")
+                    x_travel += x_step
+                    if x_travel < length_of_brickweave - 1e-9:
+                        lines.append(f"G1 A{pass_rotation:.4f} F{plunge_feedrate:.2f}")
+
+            if style == "Chevron" and (direction_lr or direction_rl):
+                lines.append(f"G1 X{(x_direction * x_step):.4f} F{plunge_feedrate:.2f}")
+                x_travel += x_step
+
+            if not (direction_lr or direction_rl):
+                break
+
+            if x_travel >= length_of_brickweave - 1e-9:
+                break
+
+        return "\n".join(lines) + "\n"
+
+
+__plugin_pythoncompat__ = ">=3.13,<4"
+__plugin_name__ = "Brick Weave"
+__plugin_version__ = "0.1.0"
+__plugin_identifier__ = "brickweave"
+__plugin_description__ = "A minimal OctoPrint plugin that generates a one-line X-axis move gcode file."
+__plugin_author__ = "Brick Weave"
+__plugin_license__ = "MIT"
+__plugin_url__ = "https://example.com/brickweave"
+__plugin_import_name__ = "octoprint_brickweave"
+
+
+def __plugin_load__():
+    global __plugin_implementation__
+    __plugin_implementation__ = BrickWeavePlugin()
+    global __plugin_hooks__
+    __plugin_hooks__ = {
+        "octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information,
+    }
