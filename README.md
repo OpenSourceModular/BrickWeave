@@ -15,7 +15,7 @@ An Octoprint plugin that generates gcode to make repeated plunge cuts around a c
 
 1. In OctoPrint, open **Settings > Plugin Manager > Get More...**
 2. Use **...from URL** and paste this in:
-  https://github.com/OpenSourceModular/BrickWeave/releases/latest 
+  https://github.com/OpenSourceModular/BrickWeave/releases/latest/download/OctoPrint-BrickWeave.zip
 3. Install and restart OctoPrint.
 
 ## Usage

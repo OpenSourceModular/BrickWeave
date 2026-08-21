@@ -3,22 +3,16 @@ requires = ["setuptools>=65", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "RosetteGenerator"
+name = "OctoprintBrickWeave"
 version = "0.1.0"
+description = "BrickWeave plugin for OctoPrint"
+readme = "README.md"
+requires-python = ">=3.13,<4"
 authors = [
     {name = "Justin Ahrens", email = "justin@ahrens.net"}
 ]
-license = "MIT
-
-description = "BrickWeave plugin for Octoprint"
-authors = [
-    {name = "Justin Ahrens", email = "justin@ahrens.net"}
-]
-
-readme = {file = "README.md", content-type = "markdown"}
-dynamic = [
-    "license"
-]
+license = {text = "MIT"}
+dependencies = ["octoprint"]
 
 [project.urls]
 Homepage = "https://github.com/OpenSourceModular/BrickWeave"

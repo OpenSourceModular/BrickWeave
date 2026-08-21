@@ -46,10 +46,10 @@ class BrickWeavePlugin(
                 "displayName": self._plugin_name,
                 "displayVersion": self._plugin_version,
                 "type": "github_release",
-                "user": "example",
+                "user": "OpenSourceModular",
                 "repo": "BrickWeave",
                 "current": self._plugin_version,
-                "pip": "https://example.com/BrickWeave-{target_version}.zip",
+                "pip": "https://github.com/OpenSourceModular/BrickWeave/releases/download/{target_version}/OctoPrint-BrickWeave.zip",
             }
         }
 
