@@ -3,13 +3,13 @@ import sys
 
 
 __plugin_pythoncompat__ = ">=3.13,<4"
-__plugin_name__ = "Brick Weave"
+__plugin_name__ = "BrickWeave"
 __plugin_version__ = "0.1.0"
 __plugin_identifier__ = "brickweave"
-__plugin_description__ = "A minimal OctoPrint plugin that generates a one-line X-axis move gcode file."
-__plugin_author__ = "Brick Weave"
+__plugin_description__ = "An Octoprint plugin that creates plunging gCode for a brick weave pattern."
+__plugin_author__ = "Justin Ahrens"
 __plugin_license__ = "MIT"
-__plugin_url__ = "https://example.com/brickweave"
+__plugin_url__ = "https://github.com/OpenSourceModular/BrickWeave/"
 __plugin_import_name__ = "octoprint_brickweave"
 
 

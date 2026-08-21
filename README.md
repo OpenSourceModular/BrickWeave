@@ -5,10 +5,9 @@ An Octoprint plugin that generates gcode to make repeated plunge cuts around a c
 ## What It Does
 
 - Adds a **Brick Weave** tab in OctoPrint.
-- Shows one textbox labeled **Move x by**.
-- When you click **Generate gCode**, the plugin creates a one-line gcode file:
-  - `G1 X<value>`
-- Saves the generated file into OctoPrint's `uploads` directory.
+- Creates a plunging pattern around a cylinder based on the number of divisions.
+- Repeats the pattern in an L-R or R-L direction based on the cutter height.
+
 
 ## Installation
 

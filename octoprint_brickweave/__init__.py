@@ -25,7 +25,7 @@ class BrickWeavePlugin(
         return [
             {
                 "type": "tab",
-                "name": "Brick Weave",
+                "name": "BrickWeave",
                 "template": "brickweave_tab.jinja2",
             },
             {
@@ -122,6 +122,7 @@ class BrickWeavePlugin(
         x_direction = 1.0 if direction_lr else -1.0 if direction_rl else 0.0
 
         lines = [
+            ";G0 Z50 ;Optional move to show operation in simulator",
             "G91",
             f"; style={style}",
             f"; number_of_divisions={number_of_divisions}",
@@ -138,7 +139,8 @@ class BrickWeavePlugin(
 
         x_travel = 0.0
         pass_count = 0
-        chevron_rotation_sign = 1.0
+        current_repeat = 0
+        current_A_direction = 1
         while x_travel < length_of_brickweave - 1e-9:
             pass_count += 1
             if pass_count > 100000:
@@ -146,32 +148,45 @@ class BrickWeavePlugin(
 
             lines.append("")
             lines.append(f"; Pass {pass_count}")
+            
 
             if style == "Chevron":
-                for _ in range(repeats):
-                    for _ in range(number_of_divisions):
-                        lines.append(f"; Division {_ + 1}")
-                        remaining_depth = total_depth
-                        current_depth = 0
-                        while remaining_depth > 0.0:
-                            if current_depth > 0:
-                                lines.append(";Plunge back to Z0")
-                                lines.append(f"G1 Z{-pull_off_distance:.4f} F{plunge_feedrate:.2f}")
-                            step_depth = min(depth_increment, remaining_depth)
-                            lines.append(';Plunge to next depth increment')
-                            lines.append(f"G1 Z{-current_depth-step_depth:.4f} F{plunge_feedrate:.2f}")
-                            remaining_depth -= step_depth
-                            current_depth += step_depth
-                            if remaining_depth > 0.0:
-                                lines.append(";Retract to pull-off distance")
-                                lines.append(f"G1 Z{current_depth+pull_off_distance:.4f} F{plunge_feedrate:.2f}")
+                lines.append(f"; current_repeat={current_repeat + 1} of {repeats}")
+                if current_repeat == repeats:
+                    current_A_direction = -current_A_direction
+                    current_repeat = 1
+                else:
+                    current_repeat += 1                 
+                print("Chevron")
+                for _ in range(number_of_divisions):
+                    lines.append(f"; Division {_ + 1}")
+                    remaining_depth = total_depth
+                    current_depth = 0
+                    while remaining_depth > 0.0:
+                        if current_depth > 0:
+                            lines.append(";Plunge back to Z0")
+                            lines.append(f"G1 Z{-pull_off_distance:.4f} F{plunge_feedrate:.2f}")
+                        step_depth = min(depth_increment, remaining_depth)
+                        lines.append(';Plunge to next depth increment')
+                        lines.append(f"G1 Z{-current_depth-step_depth:.4f} F{plunge_feedrate:.2f}")
+                        remaining_depth -= step_depth
+                        current_depth += step_depth
+                        if remaining_depth > 0.0:
+                            lines.append(";Retract to pull-off distance")
+                            lines.append(f"G1 Z{current_depth+pull_off_distance:.4f} F{plunge_feedrate:.2f}")
 
-                        lines.append(f"G1 Z{total_depth:.4f} F{plunge_feedrate:.2f}")
-                        lines.append(f"G1 A{division_angle:.4f} F{plunge_feedrate:.2f}")
+                    lines.append(f"G1 Z{total_depth:.4f} F{plunge_feedrate:.2f}")
+                    lines.append(f"G1 A{division_angle:.4f} F{plunge_feedrate:.2f}")
 
-                    lines.append(f"G1 A{(pass_rotation * chevron_rotation_sign):.4f} F{plunge_feedrate:.2f}")
-
-                chevron_rotation_sign *= -1.0
+                if x_travel == 0.0 and (direction_lr or direction_rl):
+                    lines.append(f"G1 X{(x_direction * x_step):.4f} F{plunge_feedrate:.2f}")
+                    x_travel += x_step
+                    lines.append(f"G1 A{current_A_direction * pass_rotation:.4f} F{plunge_feedrate:.2f}")
+                elif (direction_lr or direction_rl) and not (x_travel >= length_of_brickweave - 1e-9):
+                    lines.append(f"G1 X{(x_direction * x_step):.4f} F{plunge_feedrate:.2f}")
+                    x_travel += x_step
+                    if x_travel < length_of_brickweave - 1e-9:
+                        lines.append(f"G1 A{current_A_direction * pass_rotation:.4f} F{plunge_feedrate:.2f}")
             else:
                 for _ in range(number_of_divisions):
                     lines.append(f"; Division {_ + 1}")
@@ -203,10 +218,6 @@ class BrickWeavePlugin(
                     if x_travel < length_of_brickweave - 1e-9:
                         lines.append(f"G1 A{pass_rotation:.4f} F{plunge_feedrate:.2f}")
 
-            if style == "Chevron" and (direction_lr or direction_rl):
-                lines.append(f"G1 X{(x_direction * x_step):.4f} F{plunge_feedrate:.2f}")
-                x_travel += x_step
-
             if not (direction_lr or direction_rl):
                 break
 
@@ -217,13 +228,13 @@ class BrickWeavePlugin(
 
 
 __plugin_pythoncompat__ = ">=3.13,<4"
-__plugin_name__ = "Brick Weave"
+__plugin_name__ = "BrickWeave"
 __plugin_version__ = "0.1.0"
 __plugin_identifier__ = "brickweave"
-__plugin_description__ = "A minimal OctoPrint plugin that generates a one-line X-axis move gcode file."
-__plugin_author__ = "Brick Weave"
+__plugin_description__ = "An Octoprint plugin that creates plunging gCode for a brick weave pattern."
+__plugin_author__ = "Justin Ahrens"
 __plugin_license__ = "MIT"
-__plugin_url__ = "https://example.com/brickweave"
+__plugin_url__ = "https://github.com/OpenSourceModular/BrickWeave"
 __plugin_import_name__ = "octoprint_brickweave"
 
 
