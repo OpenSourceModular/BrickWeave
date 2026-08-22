@@ -79,7 +79,7 @@ class BrickWeavePlugin(
             if not output:
                 return {"success": False, "error": "Unable to generate gcode"}
 
-            upload_dir = os.path.join(octoprint.settings.settings().getBaseFolder("base"), "uploads")
+            upload_dir = os.path.join(octoprint.settings.settings().getBaseFolder("base"), "watched")
             os.makedirs(upload_dir, exist_ok=True)
             filename = "brickweave_{}.gcode".format(datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f"))
             file_path = os.path.join(upload_dir, filename)
@@ -173,20 +173,20 @@ class BrickWeavePlugin(
                         current_depth += step_depth
                         if remaining_depth > 0.0:
                             lines.append(";Retract to pull-off distance")
-                            lines.append(f"G1 Z{current_depth+pull_off_distance:.4f} F{plunge_feedrate:.2f}")
+                            lines.append(f"G1 Z{current_depth+pull_off_distance:.4f} F1000")
 
                     lines.append(f"G1 Z{total_depth:.4f} F{plunge_feedrate:.2f}")
-                    lines.append(f"G1 A{division_angle:.4f} F{plunge_feedrate:.2f}")
+                    lines.append(f"G0 A{division_angle:.4f} F{plunge_feedrate:.2f}")
 
                 if x_travel == 0.0 and (direction_lr or direction_rl):
                     lines.append(f"G1 X{(x_direction * x_step):.4f} F{plunge_feedrate:.2f}")
                     x_travel += x_step
-                    lines.append(f"G1 A{current_A_direction * pass_rotation:.4f} F{plunge_feedrate:.2f}")
+                    lines.append(f"G0 A{current_A_direction * pass_rotation:.4f} ")
                 elif (direction_lr or direction_rl) and not (x_travel >= length_of_brickweave - 1e-9):
                     lines.append(f"G1 X{(x_direction * x_step):.4f} F{plunge_feedrate:.2f}")
                     x_travel += x_step
                     if x_travel < length_of_brickweave - 1e-9:
-                        lines.append(f"G1 A{current_A_direction * pass_rotation:.4f} F{plunge_feedrate:.2f}")
+                        lines.append(f"G0 A{current_A_direction * pass_rotation:.4f}")
             else:
                 for _ in range(number_of_divisions):
                     lines.append(f"; Division {_ + 1}")
@@ -206,30 +206,31 @@ class BrickWeavePlugin(
                             lines.append(f"G1 Z{current_depth+pull_off_distance:.4f} F{plunge_feedrate:.2f}")
 
                     lines.append(f"G1 Z{total_depth:.4f} F{plunge_feedrate:.2f}")
-                    lines.append(f"G1 A{division_angle:.4f} F{plunge_feedrate:.2f}")
+                    lines.append(f"G0 A{division_angle:.4f}")
 
                 if x_travel == 0.0 and (direction_lr or direction_rl):
                     lines.append(f"G1 X{(x_direction * x_step):.4f} F{plunge_feedrate:.2f}")
                     x_travel += x_step
-                    lines.append(f"G1 A{pass_rotation:.4f} F{plunge_feedrate:.2f}")
+                    lines.append(f"G0 A{pass_rotation:.4f}")
                 elif (direction_lr or direction_rl) and not (x_travel >= length_of_brickweave - 1e-9):
                     lines.append(f"G1 X{(x_direction * x_step):.4f} F{plunge_feedrate:.2f}")
                     x_travel += x_step
                     if x_travel < length_of_brickweave - 1e-9:
-                        lines.append(f"G1 A{pass_rotation:.4f} F{plunge_feedrate:.2f}")
+                        lines.append(f"G0 A{pass_rotation:.4f}")
 
             if not (direction_lr or direction_rl):
                 break
 
             if x_travel >= length_of_brickweave - 1e-9:
                 break
-
+        lines.append("M5")
+        lines.append("M2")
         return "\n".join(lines) + "\n"
 
 
 __plugin_pythoncompat__ = ">=3.13,<4"
 __plugin_name__ = "BrickWeave"
-__plugin_version__ = "0.1.0"
+__plugin_version__ = "0.1.1"
 __plugin_identifier__ = "brickweave"
 __plugin_description__ = "An Octoprint plugin that creates plunging gCode for a brick weave pattern."
 __plugin_author__ = "Justin Ahrens"
